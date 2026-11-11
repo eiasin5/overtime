@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ওভারটাইম হিসাব</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ওভারটাইম">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1b1f24;--muted:#6b7280;--accent:#0f766e;--accent-t:#fff;--line:#e5e7eb;--danger:#b91c1c;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2026;--text:#eef0f2;--muted:#9aa3ad;--accent:#2dd4bf;--accent-t:#06201d;--line:#2b323a;--danger:#f87171;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1b2026;--text:#eef0f2;--muted:#9aa3ad;--accent:#2dd4bf;--accent-t:#06201d;--line:#2b323a;--danger:#f87171;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;font-size:16px;line-height:1.5}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.total{background:var(--accent);color:var(--accent-t);border:0}
+.total .big{font-size:32px;font-weight:700}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit}
+button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-t);font:inherit;font-weight:600;margin-top:12px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item small{color:var(--muted)}
+.del{width:auto;margin:0 0 0 10px;padding:6px 10px;background:transparent;color:var(--danger);border:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav button{width:auto;margin:0;padding:6px 14px}
+.empty{color:var(--muted);text-align:center;padding:14px 0}
+.f{margin-bottom:10px}
+.bd{margin-top:10px;font-size:14px}
+.bd div{display:flex;justify-content:space-between;padding:2px 0}
+.bd .sep{border-top:1px solid currentColor;margin-top:4px;padding-top:4px;font-weight:600}
+.drow{display:flex;gap:8px;margin-bottom:8px}
+.drow input:first-child{flex:2}
+.drow input:nth-child(2){flex:1}
+.drow .del{margin:0}
+.ghost{background:transparent;color:var(--accent);border:1px dashed var(--accent);margin-top:4px}
+textarea{display:none;width:100%;height:170px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>⏱ আমার ওভারটাইম</h1>
+
+<div class="card total">
+  <div class="nav"><button id="prev">‹</button><strong id="mlabel"></strong><button id="next">›</button></div>
+  <div>হাতে পাবেন (নিট)</div>
+  <div class="big" id="amount">৳ ০</div>
+  <div id="hours"></div>
+  <div class="bd" id="bd"></div>
+</div>
+
+<div class="card">
+  <div class="f"><label for="basic">বেসিক বেতন (৳)</label>
+  <input id="basic" type="number" inputmode="decimal" min="0" placeholder="মাসিক বেসিক"></div>
+  <div class="f"><label for="rate">ওভারটাইম রেট, ঘণ্টা প্রতি (৳)</label>
+  <input id="rate" type="number" inputmode="decimal" min="0" placeholder="যেমন: ১২০"></div>
+</div>
+
+<div class="card">
+  <label>মাসিক কর্তন (যেমন: ভবিষ্যৎ তহবিল, ঋণের কিস্তি)</label>
+  <div id="deds"></div>
+  <button class="ghost" id="addded">+ কর্তন যোগ করুন</button>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label for="date">তারিখ</label><input id="date" type="date"></div>
+    <div><label for="hrs">কত ঘণ্টা</label><input id="hrs" type="number" inputmode="decimal" step="0.5" min="0" placeholder="২.৫"></div>
+  </div>
+  <button id="add">যোগ করুন</button>
+</div>
+
+<div class="card" id="list"></div>
+
+<div class="card">
+  <button id="copy" style="margin-top:0">📋 হিসাব কপি করুন</button>
+  <textarea id="rep" readonly></textarea>
+</div>
+</main>
+
+<script>
+var KEY="overtime-v1", state={rate:0,basic:0,deds:[],entries:[]}, view=new Date();
+view.setDate(1);
+var $=function(id){return document.getElementById(id)};
+var bn=function(n){return Number(n).toLocaleString("bn-BD",{maximumFractionDigits:2})};
+function ym(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function load(){try{var s=localStorage.getItem(KEY);if(s){var p=JSON.parse(s);
+  if(!p.deds){p.deds=[];
+    if("swajan" in p)p.deds.push({id:1,name:"স্বজন",amount:p.swajan||0});
+    if("pf" in p)p.deds.push({id:2,name:"ভবিষ্যৎ তহবিল",amount:p.pf||0});}
+  delete p.swajan;delete p.pf;state=Object.assign(state,p)}}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+function line(a,b,c){var d=document.createElement("div");if(c)d.className=c;
+  var x=document.createElement("span");x.textContent=a;var y=document.createElement("span");y.textContent=b;
+  d.appendChild(x);d.appendChild(y);return d}
+function buildDeds(){var box=$("deds");box.innerHTML="";
+  state.deds.forEach(function(d){
+    var r=document.createElement("div");r.className="drow";
+    var n=document.createElement("input");n.value=d.name;n.placeholder="কর্তনের নাম";
+    n.oninput=function(){d.name=n.value;save();render()};
+    var a=document.createElement("input");a.type="number";a.inputMode="decimal";a.min="0";a.placeholder="৳";a.value=d.amount||"";
+    a.oninput=function(){d.amount=parseFloat(a.value)||0;save();render()};
+    var x=document.createElement("button");x.className="del";x.textContent="✕";
+    x.onclick=function(){state.deds=state.deds.filter(function(z){return z!==d});save();buildDeds();render()};
+    r.appendChild(n);r.appendChild(a);r.appendChild(x);box.appendChild(r)})}
+function render(){
+  $("mlabel").textContent=view.toLocaleDateString("bn-BD",{month:"long",year:"numeric"});
+  var key=ym(view);
+  var items=state.entries.filter(function(e){return e.date.slice(0,7)===key}).sort(function(a,b){return b.date.localeCompare(a.date)});
+  var h=items.reduce(function(s,e){return s+e.hours},0);
+  var ot=h*(state.rate||0),basic=state.basic||0;
+  var dt=state.deds.reduce(function(s,d){return s+(d.amount||0)},0);
+  $("hours").textContent="ওভারটাইম "+bn(h)+" ঘণ্টা";
+  $("amount").textContent="৳ "+bn(basic+ot-dt);
+  var bd=$("bd");bd.innerHTML="";
+  bd.appendChild(line("বেসিক বেতন","+ ৳ "+bn(basic)));
+  bd.appendChild(line("ওভারটাইম","+ ৳ "+bn(ot)));
+  bd.appendChild(line("মোট","৳ "+bn(basic+ot),"sep"));
+  state.deds.forEach(function(d){bd.appendChild(line(d.name||"কর্তন","− ৳ "+bn(d.amount||0)))});
+  var L=$("list");
+  if(!items.length){L.innerHTML='<div class="empty">এই মাসে এখনো কিছু যোগ করা হয়নি।</div>';return}
+  L.innerHTML="";
+  items.forEach(function(e){
+    var d=document.createElement("div");d.className="item";
+    var left=document.createElement("div");
+    left.innerHTML="<div></div><small></small>";
+    left.children[0].textContent=new Date(e.date+"T00:00").toLocaleDateString("bn-BD",{day:"numeric",month:"short",weekday:"short"});
+    left.children[1].textContent=bn(e.hours)+" ঘণ্টা · ৳ "+bn(e.hours*(state.rate||0));
+    var b=document.createElement("button");b.className="del";b.textContent="মুছুন";
+    b.onclick=function(){state.entries=state.entries.filter(function(x){return x.id!==e.id});save();render()};
+    d.appendChild(left);d.appendChild(b);L.appendChild(d);
+  });
+}
+["rate","basic"].forEach(function(id){$(id).oninput=function(){state[id]=parseFloat(this.value)||0;save();render()}});
+$("addded").onclick=function(){state.deds.push({id:Date.now(),name:"",amount:0});save();buildDeds();render();
+  var r=$("deds").querySelectorAll(".drow");r[r.length-1].firstChild.focus()};
+$("add").onclick=function(){
+  var date=$("date").value,hrs=parseFloat($("hrs").value);
+  if(!date||!(hrs>0)){alert("তারিখ আর ঘণ্টা দিন");return}
+  state.entries.push({id:Date.now(),date:date,hours:hrs});
+  save();$("hrs").value="";view=new Date(date+"T00:00");view.setDate(1);render();
+};
+$("prev").onclick=function(){view.setMonth(view.getMonth()-1);render()};
+$("next").onclick=function(){view.setMonth(view.getMonth()+1);render()};
+function report(){
+  var key=ym(view),rate=state.rate||0,basic=state.basic||0;
+  var items=state.entries.filter(function(e){return e.date.slice(0,7)===key}).sort(function(a,b){return a.date.localeCompare(b.date)});
+  var h=items.reduce(function(s,e){return s+e.hours},0),ot=h*rate,dt=0;
+  var L=["ওভারটাইম হিসাব — "+$("mlabel").textContent,""];
+  items.forEach(function(e){L.push(new Date(e.date+"T00:00").toLocaleDateString("bn-BD",{day:"numeric",month:"short"})+": "+bn(e.hours)+" ঘণ্টা")});
+  L.push("","মোট ওভারটাইম: "+bn(h)+" ঘণ্টা × ৳ "+bn(rate)+" = ৳ "+bn(ot),"বেসিক বেতন: ৳ "+bn(basic),"মোট: ৳ "+bn(basic+ot));
+  state.deds.forEach(function(d){dt+=d.amount||0;L.push((d.name||"কর্তন")+": − ৳ "+bn(d.amount||0))});
+  L.push("হাতে পাবেন: ৳ "+bn(basic+ot-dt));
+  return L.join("\n");
+}
+$("copy").onclick=function(){
+  var t=report(),ta=$("rep"),b=$("copy");
+  ta.value=t;
+  function fallback(){ta.style.display="block";ta.focus();ta.select();b.textContent="নিচের লেখাটা কপি করে নিন"}
+  try{navigator.clipboard.writeText(t).then(function(){b.textContent="✓ কপি হয়েছে";setTimeout(function(){b.textContent="📋 হিসাব কপি করুন"},2000)},fallback)}catch(e){fallback()}
+};
+var t=new Date();$("date").value=t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
+load();$("rate").value=state.rate||"";$("basic").value=state.basic||"";buildDeds();render();
+</script>
+<script>
+try{if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js")}}catch(e){}
+</script>
+</body>
+</html>
